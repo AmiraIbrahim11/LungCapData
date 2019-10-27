@@ -1,0 +1,280 @@
+---
+title: "LungCapData"
+author: "Amira Ibrahim"
+date: "October 2, 2019"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+```{r LungCapData, echo=TRUE}
+LungCapData <- read.delim(file.choose(),header = TRUE)
+attach(LungCapData)
+```
+
+#check names
+```{r , echo=TRUE}
+names(LungCapData)
+```
+
+#relation between Gender and Smoke :
+```{r , echo=TRUE}
+Table1 <- table(Gender ,Smoke)
+Table1
+barplot(Table1 , beside = TRUE , legend=TRUE ,xlab = "Smoking" , ylab = "Gender" ,
+        main = "Relation between Gender & Smoking" ,ylim = c(0,400),col = c("blue" , "orange") )
+```
+
+#categorical variables by chisq test :
+#H0 : No relation between smoking frequency and gender 
+```{r , echo=TRUE}
+chisq.test(Table1 , correct = TRUE)
+```
+p-value > 0.05 , Fail to reject H0
+
+#calculate OR , RR :
+```{r , echo=TRUE}
+library(epiR)
+epi.2by2(Table1 , method = "cohort.count" , conf.level = 0.95)
+```
+Odds of Females not smoking are 0.71 times odds of males not smoking
+```{r , echo=TRUE}
+1/0.71
+```
+Odds of males not smoking are 1.4 times odds of Females not smoking
+
+##check normality 
+```{r , echo=TRUE}
+library(moments)
+skewness(LungCap)
+```
+accepted level from -1 to +1 
+```{r , echo=TRUE}
+kurtosis(LungCap)
+```
+accepted level from -2 to +2 may to +3
+```{r , echo=TRUE}
+boxplot(LungCap)
+```
+visually ,data is normally distributed
+
+###One-sample t-test for lung Capacity : 
+##Test H0 =8  , conf.interval = 0.95 :
+```{r , echo=TRUE}
+t.test(LungCap , mu=8 , alternative = "two.sided" , conf.level = 0.95)
+```
+p-value >0.05 , fail to reject H0 
+
+###Relation between Smoke & lung Capacity :
+##H0 : mean of smokers = mean of non smokers :
+```{r , echo=TRUE}
+boxplot(LungCap~Smoke , main = "Effect of smoking on lung capacity")
+```
+
+#check variance :
+```{r , echo=TRUE}
+var(LungCap[Smoke == "yes"])
+var(LungCap[Smoke == "no"])
+```
+so variance not equal  
+
+```{r , echo=TRUE}
+t.test(LungCap~Smoke , mu=0 , alternative = "two.sided" , var.eq = F, conf.level =  0.95)
+```
+p-value < 0.05 , reject H0 , Smoking has a significant effect on lung capacity 
+
+#H0 : Median of lung capacity of smokers = Median of lung capacity of non smokers
+```{r , echo=TRUE}
+wilcox.test(LungCap~Smoke , mu=0 , alternative = "two.sided" ,
+            conf.int=T,  conf.level =  0.95 , paired=F , exact=F,correct=F)
+```
+p-value < 0.05 , reject H0 , Smoking has a significant effect on lung capacity
+
+#model the relation between Age , LungCap :
+#use simple linear regression
+```{r , echo=TRUE}
+model1 <- lm(LungCap~Age)
+plot(Age,LungCap,main = "Relation between Age & Lung Capacity")
+abline(model1 ,col=2 , lwd=3)
+```
+```{r , echo=TRUE}
+cor(Age,LungCap ,method="pearson")
+```
+there is positive strong correlation
+
+#Denisty plots : check if the response variable is close to normal :
+```{r , echo=TRUE}
+library(e1071)
+par(mfrow=c(1, 2))  # divide graph area in 2 columns 
+plot(density(LungCap), main="Density Plot: lung capacity", ylab="Frequency")
+# density plot for 'lung capacity' 
+polygon(density(LungCap), col="blue") 
+plot(density(Age), main="Density Plot: Age", ylab="Frequency")  # density plot for 'dist' 
+polygon(density(Age), col="blue")
+```
+
+#built linear model equation :
+```{r , echo=TRUE}
+model1 <- lm(LungCap~Age)
+model1
+```
+lungCap = intercept + slope*Age 
+lungCap = 1.1469 + 0.5448 * Age
+
+#check the residuals and significance
+H0 : slope = 0
+```{r , echo=TRUE}
+summary(model1)
+```
+p-value <0.05 , reject H0 
+67% of the variation in Lung Capicity is explained by Age
+
+#test H0: variation mean squared regression = variation mean squared errors
+```{r , echo=TRUE}
+anova(model1)
+sqrt(2.3)
+```
+p-value < 0.05 , reject H0
+
+#Getting the coeffecient confedience interval :
+```{r , echo=TRUE}
+confint(model1)
+```
+
+#visualize the assumption
+```{r , echo=TRUE}
+plot(model1)
+```
+
+#fit a model using Age & Height as explanatory variables :
+H0 B0=B1=B2= 0
+```{r , echo=TRUE}
+mlr <- lm(LungCap~Age+Height , data = LungCapData)
+summary(mlr)
+```
+p-value < 0.05 , reject H0
+
+84.25% of variation in lung capacity is explained by Age and Height
+
+increase in 1 year of Age with an increase in 0.126 of lung capacity adjusting for Height
+
+#pearson correlation between Age ,Height :
+```{r , echo=TRUE}
+cor(Age , Height, method = "pearson")
+```
+there is +ve strong correlation
+
+#Getting the coeffecient confedience interval :
+```{r , echo=TRUE}
+confint(mlr)
+```
+
+#visualize the assumption
+```{r , echo=TRUE}
+plot(mlr)
+```
+
+#If we convert Height into categorical variable:
+creat Height categorical A<50 , B=50-55 , c=55-60 , D=60-65 , E=65-70 , F>70 
+```{r , echo=TRUE}
+CatHeight <- cut(Height,breaks = c(0,50,55,60,65,70,100), labels = c("A","B","C","D","E","F"))
+```
+#fit model using Age , Height (as categorical variable) as explanatory variables :
+```{r , echo=TRUE}
+m2 <- lm(LungCap~Age+CatHeight)
+summary(m2)
+```
+Lung capacity = 0.976+ 0.201*Age + 1.484*Xb + 2.686*Xc + 3.939*Xd + 5.007*Xe + 6.539*Xf
+
+regression line for category A = 0.976 + 0.201*Age
+regression line for category B = 2.46 + 0.201*Age
+regression line for category c = 3.67 + 0.201*Age
+regression line for category D = 4.92 + 0.201*Age
+regression line for category E = 5.99 + 0.201*Age
+regression line for category F = 7.25 + 0.201*Age
+
+#plot Data with different colors For Height categories:
+```{r , echo=TRUE}
+plot(Age[CatHeight=="A"],LungCap[CatHeight=="A"] , col=2,xlim = c(0,20), ylim = c(0,15),xlab = "Age" , ylab = "Lung Capacity" , main = "Lung capacity according to Age & Height categories")
+points(Age[CatHeight=="B"], LungCap[CatHeight=="B"],col=3)
+points(Age[CatHeight=="C"], LungCap[CatHeight=="C"],col=4)
+points(Age[CatHeight=="D"], LungCap[CatHeight=="D"],col=5)
+points(Age[CatHeight=="E"], LungCap[CatHeight=="E"],col=6)
+points(Age[CatHeight=="F"], LungCap[CatHeight=="F"],col=7)
+legend(0,15.5,legend = c("A","B","C","D","E","F"),col = 2:7,pch = 1,cex = 0.8)
+abline(a=0.976,b=0.201,col=2,lwd=3)
+abline(a=2.46,b=0.201,col=3,lwd=3)
+abline(a=3.67,b=0.201,col=4,lwd=3)
+abline(a=4.92,b=0.201,col=5,lwd=3)
+abline(a=5.99,b=0.201,col=6,lwd=3)
+abline(a=7.25,b=0.201,col=7,lwd=3)
+```
+increase in 1 year associate with 0.201 change in lung capacity independent on Height categories
+
+Age effect is the same for all Height categories
+
+#visualize the assumption
+```{r , echo=TRUE}
+plot(m2)
+```
+
+#fit model using Age , Smoking as explanatory variables :
+```{r , echo=TRUE}
+mlr1 <- lm(LungCap~Age+Smoke)
+summary(mlr1)
+```
+67% of variation in lung capacity is explained by Age & Smoke 
+
+increase in 1 year associate with 0.555 change in lung capacity in non smokers
+
+LungCap = 1.086 + (0.555*Age) +(-0.649*Smoke yes)
+
+#Plot the data to differ between Smokers & non smokers :
+```{r , echo=TRUE}
+plot(Age[Smoke=="no"],LungCap[Smoke=="no"] , col="blue" , ylim = c(1,15),xlab = "Age" , ylab = "Lung Capacity" , main = "Lung capacity according to Age & Smoke")
+points(Age[Smoke=="yes"], LungCap[Smoke=="yes"],col="red",pch=16)
+legend(3,15,legend = c("Non Smokers","Smokers"),col = c("blue","red"),pch = c(1,16),bty = "n")
+abline(a=1.08,b=0.555,col="blue",lwd=3)
+abline(a=0.431,b=0.555,col="red",lwd=3)
+```
+increase in 1 year associate with 0.555 change in mean lung capacity , this increase is the same in Smokers & non Smokers 
+
+For Smokers mean lung capacity decreased by 0.649 ,this decrease is the same in All ages 
+
+Effect of Age is independent on Smoking & vise versa , So no interaction between Age and Smoke
+
+#Getting the coeffecient confedience interval :
+```{r , echo=TRUE}
+confint(mlr1)
+```
+
+#visualize the assumption
+```{r , echo=TRUE}
+plot(mlr1)
+```
+
+#fit model for all variables
+```{r , echo=TRUE}
+mlr2 <- lm(LungCap~ Age+Height+Smoke+Gender+Caesarean,data = LungCapData)
+summary(mlr2)
+```
+Lung capacity = -11.32+(0.16*Age) + (0.26*Height)+(-0.061*Smoke yes)+(0.38*Gender male)+(-0.21*caesarean yes)
+
+85.32% of variation in Lung capacity is explained by other variables
+
+#Getting the coeffecient confedience interval :
+```{r , echo=TRUE}
+confint(mlr2)
+```
+
+#visualize the assumption
+```{r , echo=TRUE}
+plot(mlr2)
+```
+
+```{r, include=FALSE}
+library(tinytex)
+options(tinytex.verbose = TRUE)
+```
+
